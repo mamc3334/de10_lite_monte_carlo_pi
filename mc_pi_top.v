@@ -15,12 +15,40 @@ module mc_pi_top(
     output[7:0] HEX2,
     output[7:0] HEX3,
     output[7:0] HEX4,
-    output[7:0] HEX5
+    output[7:0] HEX5,
+
+    //leds
+    output[3:0] LEDR
 );
-    //input
-    wire rst_n = KEY[0];
-    wire run_en = ~KEY[1];
-    wire[3:0] switch_val = SW;
+    //sync reset
+	 reg [1:0] rst_sync;
+    always @(posedge MAX10_CLK1_50 or negedge KEY[0]) begin
+        if (!KEY[0])
+            rst_sync <= 2'b0;
+        else
+            rst_sync <= {rst_sync[0], 1'b1};
+    end
+    
+	 wire rst_n = rst_sync[1];
+
+    //sync run key
+	 //2-flop synchronizer + edge detect
+    reg [2:0] key1_sync;
+    always @(posedge MAX10_CLK1_50 or negedge rst_n) begin
+        if (!rst_n)
+            key1_sync <= 3'b0;
+        else
+            key1_sync <= {key1_sync[1:0], ~KEY[1]};
+    end
+	 
+    wire run_en = key1_sync[2] & ~key1_sync[1]; 
+	 
+	 //SWitches
+    wire[3:0] switch_val = SW[3:0];
+    
+	wire avg_en = SW[9];
+
+    assign LEDR = SW;
 
     //signals
     wire pi_done;
