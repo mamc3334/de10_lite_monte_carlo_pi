@@ -85,6 +85,8 @@ set_clock_uncertainty -fall_from [get_clocks {clk}] -fall_to [get_clocks {clk}] 
 # Set False Path
 #**************************************************************
 
+set_false_path -from [get_ports {KEY[*] SW[*]}]
+set_false_path -to   [get_ports {HEX0[*] HEX1[*] HEX2[*] HEX3[*] HEX4[*] HEX5[*]}]
 
 
 #**************************************************************

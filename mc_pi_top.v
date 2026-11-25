@@ -7,7 +7,7 @@ module mc_pi_top(
     input[1:0]  KEY,
 
     // total samples (1-65536)
-    input[3:0]  SW, 
+    input[9:0]  SW, 
     
     //hex displays
     output[7:0] HEX0,
@@ -15,12 +15,40 @@ module mc_pi_top(
     output[7:0] HEX2,
     output[7:0] HEX3,
     output[7:0] HEX4,
-    output[7:0] HEX5
+    output[7:0] HEX5,
+
+    //leds
+    output[9:0] LEDR
 );
-    //input
-    wire rst_n = KEY[0];
-    wire run_en = ~KEY[1];
-    wire[3:0] switch_val = SW;
+    //sync reset
+	 reg [1:0] rst_sync;
+    always @(posedge MAX10_CLK1_50 or negedge KEY[0]) begin
+        if (!KEY[0])
+            rst_sync <= 2'b0;
+        else
+            rst_sync <= {rst_sync[0], 1'b1};
+    end
+    
+	 wire rst_n = rst_sync[1];
+
+    //sync run key
+	 //2-flop synchronizer + edge detect
+    reg [2:0] key1_sync;
+    always @(posedge MAX10_CLK1_50 or negedge rst_n) begin
+        if (!rst_n)
+            key1_sync <= 3'b0;
+        else
+            key1_sync <= {key1_sync[1:0], ~KEY[1]};
+    end
+	 
+    wire run_en = key1_sync[2] & ~key1_sync[1]; 
+	 
+	 //SWitches
+    wire[3:0] switch_val = SW[3:0];
+    
+	wire avg_en = SW[9];
+
+    assign LEDR = SW;
 
     //signals
     wire pi_done;
@@ -45,6 +73,7 @@ module mc_pi_top(
     wire[15:0] lane_hits;
     wire[16:0] total_hits;
     wire[19:0] scaled_pi;
+	wire[19:0] display_pi;
 
     lane_array lanes (
         .clk(MAX10_CLK1_50),
@@ -70,6 +99,15 @@ module mc_pi_top(
         .pi_estimate(scaled_pi),
         .done(pi_done)
     );
+	 
+	average avg_ (
+	    .clk(MAX10_CLK1_50),
+        .rst_n(rst_n),
+        .en(avg_en),
+        .pi_done(pi_done),
+        .this_run(scaled_pi),
+        .new_pi(display_pi)
+    );
 
     //display digits
     wire[3:0] dig5;
@@ -83,7 +121,7 @@ module mc_pi_top(
         .clk(MAX10_CLK1_50),
         .rst_n(rst_n),
         .update(pi_done),
-        .bin(scaled_pi),
+        .bin(display_pi),
         .dig5(dig5),
         .dig4(dig4),
         .dig3(dig3),
